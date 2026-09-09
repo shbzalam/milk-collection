@@ -45,7 +45,7 @@ public class FarmerController {
             @RequestParam(required = false) Long villageId,
             @RequestParam(required = false) Long collectionPointId,
             @RequestParam(required = false) String phone,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @PageableDefault(size = 50, sort = "farmerCode") Pageable pageable) {
         return farmerService.list(villageId, collectionPointId, phone, pageable);
     }
 

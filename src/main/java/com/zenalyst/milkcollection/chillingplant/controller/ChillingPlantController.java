@@ -39,7 +39,7 @@ public class ChillingPlantController {
 
     @GetMapping
     @Operation(summary = "List chilling plants")
-    public PageResponse<ChillingPlantResponse> list(@PageableDefault(size = 50) Pageable pageable) {
+    public PageResponse<ChillingPlantResponse> list(@PageableDefault(size = 50, sort = "code") Pageable pageable) {
         return chillingPlantService.list(pageable);
     }
 

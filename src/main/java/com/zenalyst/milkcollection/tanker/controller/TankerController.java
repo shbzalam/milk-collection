@@ -38,7 +38,7 @@ public class TankerController {
 
     @GetMapping
     @Operation(summary = "List tankers")
-    public PageResponse<TankerResponse> list(@PageableDefault(size = 50) Pageable pageable) {
+    public PageResponse<TankerResponse> list(@PageableDefault(size = 50, sort = "tankerCode") Pageable pageable) {
         return tankerService.list(pageable);
     }
 

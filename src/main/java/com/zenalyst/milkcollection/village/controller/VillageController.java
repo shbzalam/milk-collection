@@ -38,7 +38,7 @@ public class VillageController {
 
     @GetMapping
     @Operation(summary = "List villages")
-    public PageResponse<VillageResponse> list(@PageableDefault(size = 50) Pageable pageable) {
+    public PageResponse<VillageResponse> list(@PageableDefault(size = 50, sort = "code") Pageable pageable) {
         return villageService.list(pageable);
     }
 

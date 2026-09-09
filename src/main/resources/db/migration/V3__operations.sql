@@ -19,8 +19,9 @@ create table collection_run
     actual_start_time  timestamptz,
     actual_end_time    timestamptz,
     status             varchar(16) not null,
-    -- Optimistic locking for state transitions (see RunExecutionService).
-    version            bigint      not null,
+    -- Optimistic locking for state transitions (see RunExecutionService). Defaulted so that a
+    -- plain SQL insert cannot violate the NOT NULL constraint; JPA always supplies its own value.
+    version            bigint      not null default 0,
     constraint uk_collection_run_number unique (run_number),
     constraint fk_collection_run_route_version foreign key (route_version_id) references route_version (id),
     constraint fk_collection_run_tanker foreign key (tanker_id) references tanker (id),

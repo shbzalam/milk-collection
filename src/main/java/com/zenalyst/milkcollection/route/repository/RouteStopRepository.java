@@ -21,13 +21,9 @@ public interface RouteStopRepository extends JpaRepository<RouteStop, Long> {
             """)
     List<RouteStop> findByRouteVersionIdWithCollectionPoint(@Param("routeVersionId") Long routeVersionId);
 
-    List<RouteStop> findByRouteVersionIdOrderBySequenceNumberAsc(Long routeVersionId);
-
     boolean existsByRouteVersionIdAndCollectionPointId(Long routeVersionId, Long collectionPointId);
 
     boolean existsByRouteVersionIdAndSequenceNumber(Long routeVersionId, int sequenceNumber);
-
-    long countByRouteVersionId(Long routeVersionId);
 
     @Query("select coalesce(max(s.sequenceNumber), 0) from RouteStop s where s.routeVersion.id = :routeVersionId")
     int highestSequenceNumber(@Param("routeVersionId") Long routeVersionId);

@@ -34,8 +34,6 @@ public interface FarmerRepository extends JpaRepository<Farmer, Long>,
     @EntityGraph(attributePaths = {"village", "collectionPoint"})
     Optional<Farmer> findWithAssociationsById(Long id);
 
-    List<Farmer> findByCollectionPointIdAndStatus(Long collectionPointId, EntityStatus status);
-
     /**
      * Per-collection-point planning aggregate: how many farmers deliver there and how much
      * milk to expect. Computed in one query so the optimizer never loops over farmers.

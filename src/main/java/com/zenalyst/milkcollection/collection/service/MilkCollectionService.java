@@ -12,7 +12,6 @@ import com.zenalyst.milkcollection.exception.ErrorCode;
 import com.zenalyst.milkcollection.exception.ResourceNotFoundException;
 import com.zenalyst.milkcollection.farmer.entity.Farmer;
 import com.zenalyst.milkcollection.farmer.service.FarmerService;
-import com.zenalyst.milkcollection.route.planning.PlanningConstraints;
 import com.zenalyst.milkcollection.route.planning.ProjectedSchedule;
 import com.zenalyst.milkcollection.run.entity.CollectionRun;
 import com.zenalyst.milkcollection.run.entity.RunStop;
@@ -78,7 +77,7 @@ public class MilkCollectionService {
 
         Instant collectedAt = clock.instant();
         BigDecimal newTotal = requireCapacityFor(run, request.quantityLitres());
-        ProjectedSchedule remainder = requireHoldingTimeFor(run, stop, collectedAt);
+        HoldingAssessment holding = requireHoldingTimeFor(run, stop, collectedAt);
 
         MilkCollection collection = milkCollectionRepository.save(MilkCollection.builder()
                 .runStop(stop)
@@ -94,19 +93,16 @@ public class MilkCollectionService {
             runStopRepository.save(stop);
         }
 
-        Duration holding = holdingDuration(runId, remainder, collectedAt);
-        PlanningConstraints constraints = runScheduleService.constraintsFor(run);
         log.info("Recorded {} L from farmer {} at {} on run {}; load now {}/{} L; "
                         + "projected plant arrival {} (oldest milk {} old, limit {})",
                 request.quantityLitres(), farmer.getFarmerCode(),
                 stop.getRouteStop().getCollectionPoint().getCode(), run.getRunNumber(),
-                newTotal, run.getTanker().getCapacityLitres(), remainder.plantArrival(),
-                holding, constraints.maxHoldingDuration());
+                newTotal, run.getTanker().getCapacityLitres(), holding.plantArrival(),
+                holding.duration(), holding.limit());
 
         return MilkCollectionResponse.of(collection,
                 RunLoadSummary.of(newTotal, run.getTanker().getCapacityLitres()),
-                remainder.plantArrival(), holding,
-                constraints.maxHoldingDuration().minus(holding));
+                holding.plantArrival(), holding.duration(), holding.remaining());
     }
 
     @Transactional(readOnly = true)
@@ -178,26 +174,25 @@ public class MilkCollectionService {
      * point at all - {@code RouteFeasibilityService} validates the plan before the run is
      * created - so this is the safety net for a run that has fallen behind schedule.
      */
-    private ProjectedSchedule requireHoldingTimeFor(CollectionRun run, RunStop stop,
+    private HoldingAssessment requireHoldingTimeFor(CollectionRun run, RunStop stop,
                                                     Instant collectedAt) {
         ProjectedSchedule remainder = projectRemainder(run, stop, collectedAt);
-        PlanningConstraints constraints = runScheduleService.constraintsFor(run);
-        Duration holding = holdingDuration(run.getId(), remainder, collectedAt);
+        Duration limit = runScheduleService.constraintsFor(run).maxHoldingDuration();
 
-        if (holding.compareTo(constraints.maxHoldingDuration()) > 0) {
+        // The oldest milk on board is what the limit applies to. With an empty tanker that is
+        // the milk being offered, so one formula covers both cases.
+        Instant earliest = milkCollectionRepository.earliestCollectedAt(run.getId());
+        Duration holding = remainder.holdingDurationFrom(earliest != null ? earliest : collectedAt);
+
+        if (holding.compareTo(limit) > 0) {
             throw new BusinessRuleException(ErrorCode.MILK_HOLDING_TIME_EXCEEDED,
                     ("Milk cannot be accepted: on the current projection the tanker reaches %s at "
                             + "%s, by which time the oldest milk on board would be %s old, over "
                             + "the %s limit").formatted(
                             run.getChillingPlant().getCode(), remainder.plantArrival(), holding,
-                            constraints.maxHoldingDuration()));
+                            limit));
         }
-        return remainder;
-    }
-
-    private Duration holdingDuration(Long runId, ProjectedSchedule remainder, Instant collectedAt) {
-        Instant earliest = milkCollectionRepository.earliestCollectedAt(runId);
-        return remainder.holdingDurationFrom(earliest != null ? earliest : collectedAt);
+        return new HoldingAssessment(remainder.plantArrival(), holding, limit);
     }
 
     /**
@@ -213,6 +208,14 @@ public class MilkCollectionService {
                 collectedAt.plus(runScheduleService.outstandingServiceAt(stop, served));
         return runScheduleService.projectFrom(run, runScheduleService.locationOf(stop),
                 departureFromThisStop, stop.getSequenceNumber());
+    }
+
+    /** Outcome of the holding-time check, so it is computed once and reused for the response. */
+    private record HoldingAssessment(Instant plantArrival, Duration duration, Duration limit) {
+
+        Duration remaining() {
+            return limit.minus(duration);
+        }
     }
 
     private RunStop requireStopOfRun(Long runId, Long stopId) {

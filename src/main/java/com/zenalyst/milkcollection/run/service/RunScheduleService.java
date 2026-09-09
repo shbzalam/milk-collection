@@ -45,8 +45,7 @@ public class RunScheduleService {
     private final AppProperties appProperties;
 
     /** Stops of the run still to be worked, after the given sequence number, in driving order. */
-    @Transactional(readOnly = true)
-    public List<PlannedStop> remainingStops(CollectionRun run, int afterSequenceNumber) {
+    private List<PlannedStop> remainingStops(CollectionRun run, int afterSequenceNumber) {
         Set<Long> outstandingRouteStopIds =
                 runStopRepository.findByRunIdWithCollectionPoint(run.getId()).stream()
                         .filter(stop -> stop.getSequenceNumber() > afterSequenceNumber)

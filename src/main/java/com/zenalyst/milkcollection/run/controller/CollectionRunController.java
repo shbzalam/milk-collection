@@ -59,7 +59,7 @@ public class CollectionRunController {
             @RequestParam(required = false) Shift shift,
             @RequestParam(required = false) RunStatus status,
             @RequestParam(required = false) Long tankerId,
-            @PageableDefault(size = 50, sort = {"runDate", "plannedStartTime"},
+            @PageableDefault(size = 50, sort = {"runDate", "plannedStartTime", "id"},
                     direction = Sort.Direction.DESC) Pageable pageable) {
         return runQueryService.list(runDate, shift, status, tankerId, pageable);
     }

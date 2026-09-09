@@ -62,6 +62,8 @@ import static org.mockito.Mockito.when;
  * setting those up through HTTP would be indirect and slow.
  */
 @ExtendWith(MockitoExtension.class)
+// Lenient because one shared fixture stubs the whole happy path and each test then exercises a
+// subset of it; strict stubs would fail on the collaborators a given rule never reaches.
 @MockitoSettings(strictness = Strictness.LENIENT)
 class MilkCollectionServiceTest {
 

@@ -46,7 +46,7 @@ public class RouteController {
 
     @GetMapping
     @Operation(summary = "List routes")
-    public PageResponse<RouteResponse> list(@PageableDefault(size = 50) Pageable pageable) {
+    public PageResponse<RouteResponse> list(@PageableDefault(size = 50, sort = "routeCode") Pageable pageable) {
         return routeService.list(pageable);
     }
 

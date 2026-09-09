@@ -42,7 +42,7 @@ public class CollectionPointController {
     @Operation(summary = "List collection points, optionally filtered by village")
     public PageResponse<CollectionPointResponse> list(
             @RequestParam(required = false) Long villageId,
-            @PageableDefault(size = 50) Pageable pageable) {
+            @PageableDefault(size = 50, sort = "code") Pageable pageable) {
         return collectionPointService.list(villageId, pageable);
     }
 

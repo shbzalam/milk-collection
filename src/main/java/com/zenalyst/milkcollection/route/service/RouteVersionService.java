@@ -174,8 +174,7 @@ public class RouteVersionService {
     }
 
     /** Loads a version and asserts it really belongs to the route in the path. */
-    @Transactional(readOnly = true)
-    public RouteVersion requireVersionOfRoute(Long routeId, Long versionId) {
+    private RouteVersion requireVersionOfRoute(Long routeId, Long versionId) {
         RouteVersion version = routeVersionRepository.findWithRouteById(versionId)
                 .orElseThrow(() -> ResourceNotFoundException.of("RouteVersion", versionId));
         if (!version.getRoute().getId().equals(routeId)) {

@@ -14,4 +14,6 @@ public interface TankerRepository extends JpaRepository<Tanker, Long> {
 
     /** Planning uses the largest tankers first, so ordering is part of the query. */
     List<Tanker> findByStatusOrderByCapacityLitresDesc(TankerStatus status);
+
+    List<Tanker> findByIdIn(List<Long> ids);
 }

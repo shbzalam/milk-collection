@@ -39,8 +39,12 @@ public abstract class IntegrationTestBase {
     @Autowired
     protected JdbcTemplate jdbcTemplate;
 
+    /** Drives fixture setup through the public API. */
+    protected TestApi api;
+
     @BeforeEach
     void resetDatabase() {
+        api = new TestApi(mockMvc, objectMapper);
         List<String> tables = jdbcTemplate.queryForList("""
                 select table_name from information_schema.tables
                  where table_schema = 'public'

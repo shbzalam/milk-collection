@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import com.zenalyst.milkcollection.common.domain.Shift;
+
 import java.time.LocalTime;
 
 /**
@@ -14,4 +16,8 @@ import java.time.LocalTime;
 public record OperationsProperties(
         @NotNull LocalTime morningStartTime,
         @NotNull LocalTime eveningStartTime) {
+
+    public LocalTime startTimeFor(Shift shift) {
+        return shift == Shift.MORNING ? morningStartTime : eveningStartTime;
+    }
 }

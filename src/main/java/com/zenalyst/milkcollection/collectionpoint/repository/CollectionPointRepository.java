@@ -1,6 +1,7 @@
 package com.zenalyst.milkcollection.collectionpoint.repository;
 
 import com.zenalyst.milkcollection.collectionpoint.entity.CollectionPoint;
+import com.zenalyst.milkcollection.common.domain.EntityStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -28,6 +29,7 @@ public interface CollectionPointRepository extends JpaRepository<CollectionPoint
     @Query("select cp from CollectionPoint cp join fetch cp.village v where v.id = :villageId")
     Page<CollectionPoint> findByVillageIdWithVillage(@Param("villageId") Long villageId, Pageable pageable);
 
-    @EntityGraph(attributePaths = "village")
     List<CollectionPoint> findByIdIn(List<Long> ids);
+
+    List<CollectionPoint> findByStatusOrderByIdAsc(EntityStatus status);
 }

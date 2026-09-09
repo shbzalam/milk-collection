@@ -100,6 +100,64 @@ public class TestApi {
         return mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/routes/{r}/versions/{v}/publish", routeId, versionId));
     }
 
+    /** Creates a route with one published version covering the given collection points. */
+    public long publishedRouteVersion(String routeCode, long... collectionPointIds) throws Exception {
+        long routeId = createRoute(routeCode, routeCode + " loop");
+        long versionId = createRouteVersion(routeId);
+        addStops(routeId, versionId, collectionPointIds).andExpect(status().isOk());
+        publishVersion(routeId, versionId).andExpect(status().isOk());
+        return versionId;
+    }
+
+    public ResultActions createRunRaw(long routeVersionId, long tankerId, long chillingPlantId,
+                                      String runDate, String shift) throws Exception {
+        return postJson("/api/v1/runs", """
+                {"routeVersionId":%d,"tankerId":%d,"chillingPlantId":%d,"runDate":"%s","shift":"%s"}
+                """.formatted(routeVersionId, tankerId, chillingPlantId, runDate, shift));
+    }
+
+    public long createRun(long routeVersionId, long tankerId, long chillingPlantId, String runDate,
+                          String shift) throws Exception {
+        return id(createRunRaw(routeVersionId, tankerId, chillingPlantId, runDate, shift)
+                .andExpect(status().isCreated()));
+    }
+
+    public ResultActions startRun(long runId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/runs/{id}/start", runId));
+    }
+
+    public ResultActions cancelRun(long runId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/runs/{id}/cancel", runId));
+    }
+
+    public ResultActions completeRun(long runId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/runs/{id}/complete", runId));
+    }
+
+    public ResultActions arriveAtStop(long runId, long stopId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/v1/runs/{id}/stops/{stopId}/arrive", runId, stopId));
+    }
+
+    public ResultActions completeStop(long runId, long stopId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/v1/runs/{id}/stops/{stopId}/complete", runId, stopId));
+    }
+
+    public ResultActions skipStop(long runId, long stopId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders
+                .post("/api/v1/runs/{id}/stops/{stopId}/skip", runId, stopId));
+    }
+
+    public ResultActions getRun(long runId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/runs/{id}", runId));
+    }
+
+    /** Id of the run stop at the given zero-based position in the run's stop order. */
+    public long stopIdAt(long runId, int index) throws Exception {
+        return json(getRun(runId).andExpect(status().isOk())).get("stops").get(index).get("id").asLong();
+    }
+
     public ResultActions postJson(String path, String body) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders.post(path)
                 .contentType(APPLICATION_JSON).content(body));

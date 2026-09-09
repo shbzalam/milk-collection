@@ -10,6 +10,7 @@ import com.zenalyst.milkcollection.farmer.dto.CreateFarmerRequest;
 import com.zenalyst.milkcollection.farmer.dto.FarmerResponse;
 import com.zenalyst.milkcollection.farmer.entity.Farmer;
 import com.zenalyst.milkcollection.farmer.repository.FarmerRepository;
+import com.zenalyst.milkcollection.farmer.repository.FarmerSpecifications;
 import com.zenalyst.milkcollection.village.entity.Village;
 import com.zenalyst.milkcollection.village.service.VillageService;
 import lombok.RequiredArgsConstructor;
@@ -63,7 +64,8 @@ public class FarmerService {
     public PageResponse<FarmerResponse> list(Long villageId, Long collectionPointId, String phone,
                                              Pageable pageable) {
         return PageResponse.from(
-                farmerRepository.search(villageId, collectionPointId, phone, pageable),
+                farmerRepository.findAll(
+                        FarmerSpecifications.filter(villageId, collectionPointId, phone), pageable),
                 FarmerResponse::from);
     }
 

@@ -585,3 +585,161 @@ What I am confident *is* solid: the domain model, the versioning guarantee, the 
 concurrency handling around capacity, and the test coverage of the business rules — 150 tests, with
 the ones that matter asserting exact arithmetic against real PostgreSQL rather than just checking
 that responses have the right shape.
+
+---
+
+# Appendix: the Docker setup
+
+Two files, and everything about them is explainable without deep Docker knowledge. The honest
+framing if pushed beyond this: *"I have not operated Docker in production. I can tell you exactly
+what my setup does and why I made these choices."* That is a better answer than bluffing.
+
+## What Docker is doing here, and why
+
+The brief requires that the submission **runs on a clean machine**. Without containers that means
+a README saying "install PostgreSQL 16, create a `milk` user, create a `milk_collection` database,
+hope your local version matches mine". With containers it is one command, and the reviewer gets the
+same PostgreSQL 16 I developed against.
+
+So Docker is solving exactly one problem in this project: **reproducible environment setup**. It is
+not doing orchestration, scaling, or service discovery beyond a single network.
+
+## The two commands
+
+```bash
+docker compose up -d                          # PostgreSQL only, in the background
+docker compose --profile app up -d --build     # PostgreSQL + the application, both containerised
+```
+
+- `up` creates and starts the services; `-d` ("detached") returns the terminal instead of streaming
+  logs. `docker compose logs -f app` follows them afterwards.
+- `--build` builds the application image from the `Dockerfile` first, instead of reusing a cached one.
+- `docker compose down` stops everything; `down -v` also deletes the database volume, i.e. wipes the
+  data.
+
+## docker-compose.yml, line by line
+
+Compose is a description of the services to run together. Two of them.
+
+**The `postgres` service**
+
+| Line | What it does |
+|---|---|
+| `image: postgres:16-alpine` | Uses the official prebuilt PostgreSQL 16 image from Docker Hub. Nothing to build. `alpine` is a minimal base OS, so the image is small. |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | The official image reads these **on first start** and creates that database and user. Gotcha worth knowing: if the volume already contains data, these are ignored — changing the password in the compose file does nothing until you `down -v`. |
+| `ports: "5432:5432"` | `host:container`. Publishes the container's 5432 onto the host's 5432, which is what lets `mvn spring-boot:run` on the host reach it at `localhost:5432`. |
+| `volumes: postgres-data:/var/lib/postgresql/data` | That path is where PostgreSQL keeps its data files. A **named volume** makes the data outlive the container — without this, every restart would start from an empty database. |
+| `healthcheck: pg_isready …` | Docker periodically runs `pg_isready` *inside* the container; it exits 0 once the server is accepting connections. Until then Docker marks the container "starting", not "healthy". |
+
+**The `app` service**
+
+| Line | What it does |
+|---|---|
+| `profiles: ["app"]` | A **Compose** profile: services tagged with one only start when that profile is requested. This is why `docker compose up -d` gives you the database alone. Do not confuse it with `SPRING_PROFILES_ACTIVE` two lines below — that is a **Spring** profile. Same word, unrelated mechanisms. |
+| `build: .` | Build this image from the `Dockerfile` in the current directory, rather than pulling a published one. |
+| `depends_on: postgres: condition: service_healthy` | Wait for the healthcheck to pass before starting the app. This matters: PostgreSQL takes a few seconds to initialise, and Flyway would otherwise fail on "connection refused". |
+| `DB_HOST: postgres` | **The detail most worth understanding.** Compose puts both containers on one network and provides DNS by service name, so the app reaches the database at the hostname `postgres`. From the host it is `localhost:5432`; from inside the network it is `postgres:5432`. |
+| `SPRING_PROFILES_ACTIVE: demo` | Makes the containerised app load the seed dataset, so a reviewer has usable data immediately. |
+| `ports: "8080:8080"` | Publishes the API on the host. |
+| `${DB_NAME:-milk_collection}` | Compose variable substitution with a default. Values come from a `.env` file or the shell. **Every variable here has a default, so `docker compose up` works with no `.env` file at all** — which is what makes "clean machine" true. |
+
+## Dockerfile, line by line
+
+It is a **multi-stage build**: stage one compiles, stage two runs, and only the second becomes the
+shipped image.
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21 AS build     # stage 1: has Maven and a full JDK
+WORKDIR /build                                  # working directory inside the image
+COPY pom.xml .                                  # copy the POM alone, first
+RUN mvn -B -DskipTests dependency:go-offline || true
+COPY src ./src                                  # then the source
+RUN mvn -B -DskipTests clean package            # produce the jar
+```
+
+- **Why the POM is copied before the source.** Each instruction creates a cached layer. Dependencies
+  change rarely and source changes constantly, so downloading dependencies in its own earlier layer
+  means editing a Java file does not re-download them. Copying everything at once would.
+- **Why `|| true`.** `dependency:go-offline` is only a cache warm-up and occasionally fails on an
+  optional plugin. Failing the whole build over a cache optimisation would be wrong; the real build
+  on the next line is what must succeed.
+- **Why `-DskipTests`.** The integration tests need Docker themselves (Testcontainers), and running
+  them inside a container being built by Docker is not something to attempt. Tests run in CI and
+  locally via `mvn verify` — see below.
+- `-B` is batch mode: non-interactive, no progress spam in build logs.
+
+```dockerfile
+FROM eclipse-temurin:21-jre-jammy               # stage 2: JRE only, no Maven, no JDK, no source
+WORKDIR /app
+RUN groupadd --system app && useradd --system --gid app app
+COPY --from=build /build/target/milk-collection-*.jar app.jar
+USER app
+EXPOSE 8080
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+```
+
+- **Why two stages.** The final image contains only a JRE and one jar. Maven, the JDK, the source
+  tree and the downloaded dependency cache are all left behind in stage one — a much smaller image
+  and much less in it that could be attacked.
+- `COPY --from=build` reaches into the earlier stage and takes just the jar.
+- **`USER app`** runs the process as an unprivileged user. Containers run as root by default, and
+  root inside a container is a needless risk.
+- **`EXPOSE 8080` does not publish anything.** It is metadata documenting the port; actual publishing
+  is the `ports:` entry in compose. A common misconception, and a fair thing to be asked.
+- **`-XX:MaxRAMPercentage=75`** tells the JVM to size its heap to 75% of the container's memory
+  limit. The remaining 25% is for non-heap memory — metaspace, thread stacks, direct buffers. Without
+  it, a memory-limited container can have the JVM sized so optimistically that the kernel kills it.
+- The jar is a Spring Boot executable jar with an embedded Tomcat, so `java -jar` is the whole
+  runtime command — no application server to install or configure.
+
+## How configuration reaches the application
+
+```
+.env (or shell)  →  compose ${VAR:-default}  →  container environment variable
+                 →  Spring relaxed binding   →  ${VAR:default} in application.yml
+```
+
+`MILK_MAX_HOLDING_DURATION=PT3H30M` in the environment overrides `milk.max-holding-duration`,
+because Spring maps `MILK_MAX_HOLDING_DURATION` onto that property automatically. So the holding
+limit — the most business-significant setting in the system — is changed without touching code or
+rebuilding an image. Nothing sensitive is committed: `.env` is git-ignored and only `.env.example`
+is tracked.
+
+## Why the integration tests need Docker
+
+`mvn clean test` runs 76 unit tests and needs nothing — no database, no Docker.
+
+`mvn clean verify` also runs 74 integration tests, and those use **Testcontainers**: the test JVM
+asks the Docker daemon to start a real `postgres:16-alpine` container, runs the real Flyway
+migrations against it, and throws it away afterwards. That is why the same suite behaves identically
+on my machine and in CI, and why it needs a Docker daemon running.
+
+Note the two uses of the same Postgres image are unrelated: compose starts one for *running* the
+app, Testcontainers starts one for *testing* it.
+
+## Likely questions
+
+**"Why Docker at all?"** The submission has to run on a clean machine. Without it the README needs
+manual PostgreSQL installation instructions and the reviewer's version may not match mine.
+
+**"Why is the application behind a compose profile?"** So `docker compose up -d` starts the database
+only, leaving port 8080 free for `mvn spring-boot:run` during development. Both services in the
+default profile would mean the container and the local process fighting over the port. One flag,
+`--profile app`, brings up the full stack instead.
+
+**"How does the app container find the database?"** Compose puts them on one network with DNS by
+service name, so the host is `postgres`, not `localhost` — `localhost` inside a container is that
+container.
+
+**"What happens to my data when the container restarts?"** It survives, in the named volume
+`postgres-data`. `docker compose down -v` deletes it deliberately.
+
+**"Is this production-ready?"** No, and it is not meant to be. In production the database would be a
+managed service with backups and point-in-time recovery, the image would be published to a registry
+and deployed by an orchestrator, and `DB_PASSWORD` would come from a secret manager rather than an
+environment variable in a file. Compose here is a development and review convenience. What *does*
+carry over is the image itself: multi-stage, JRE-only, non-root, configured entirely by environment
+variables.
+
+**"Why not run the tests during the image build?"** They need a Docker daemon for Testcontainers.
+Tests belong in the pipeline before the image is built, not inside the build.

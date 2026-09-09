@@ -32,7 +32,7 @@ says so rather than presenting a choice as a requirement.
 > simultaneously cannot overfill a tanker between them. There is a test that fails if you remove
 > the lock.
 >
-> Java 21, Spring Boot 3.4, PostgreSQL, Flyway, Docker Compose, 141 tests. The interesting business
+> Java 21, Spring Boot 3.4, PostgreSQL, Flyway, Docker Compose, 149 tests. The interesting business
 > rules are unit tested, and the integration tests run against real PostgreSQL because the
 > correctness of this system depends on constraints — partial unique indexes and `SELECT … FOR
 > UPDATE` — that only the real engine has.
@@ -580,6 +580,6 @@ Stated plainly, worst first.
 10. **Position history has no retention policy**, so it grows without bound.
 
 What I am confident *is* solid: the domain model, the versioning guarantee, the transactional and
-concurrency handling around capacity, and the test coverage of the business rules — 141 tests, with
+concurrency handling around capacity, and the test coverage of the business rules — 149 tests, with
 the ones that matter asserting exact arithmetic against real PostgreSQL rather than just checking
 that responses have the right shape.

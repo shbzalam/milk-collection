@@ -3,7 +3,7 @@
 Backend for a dairy that collects milk twice a day from ~1,400 farmers across 60 villages using
 22 tankers, and needs to stop losing loads to spoilage.
 
-Java 21 · Spring Boot 3.4 · PostgreSQL 16 · Flyway · Docker Compose · 141 tests
+Java 21 · Spring Boot 3.4 · PostgreSQL 16 · Flyway · Docker Compose · 149 tests
 
 ---
 
@@ -349,6 +349,7 @@ One shape for every failure, with a stable machine-readable `code`:
 ```
 
 `RESOURCE_NOT_FOUND` · `VALIDATION_FAILED` (adds a `fieldErrors` array) · `MALFORMED_REQUEST` ·
+`METHOD_NOT_ALLOWED` · `UNSUPPORTED_MEDIA_TYPE` · `NOT_ACCEPTABLE` ·
 `DUPLICATE_RESOURCE` · `CONSTRAINT_VIOLATION` · `CONCURRENT_MODIFICATION` · `INVALID_ROUTE` ·
 `ROUTE_VERSION_NOT_PUBLISHED` · `ROUTE_VERSION_IMMUTABLE` · `NO_TANKERS_AVAILABLE` ·
 `INVALID_RUN_STATE` · `INVALID_STOP_STATE` · `TANKER_ALREADY_ASSIGNED` ·
@@ -397,7 +398,7 @@ present. No credentials are committed.
 
 ```bash
 mvn clean test      # 76 unit tests - no database, no Docker, ~5 seconds
-mvn clean verify    # the above plus 65 integration tests (needs Docker)
+mvn clean verify    # the above plus 73 integration tests (needs Docker)
 ```
 
 Unit tests (`*Test`, Surefire) and integration tests (`*IT`, Failsafe) are split deliberately, so
@@ -427,6 +428,7 @@ from truncating the schema before each test instead.
 | `FarmerEtaIT` | all six ETA states, with exact arrival instants derived from the documented model |
 | `SeedDataIT` | the demo dataset loads, is idempotent, and its routes are actually drivable |
 | `FullCollectionJourneyIT` | the whole sequence a dairy performs, empty database to closed run |
+| `HttpContractIT` | protocol-level behaviour: unknown path, wrong method, bad content type, unparseable input |
 
 Time-dependent behaviour is testable because `java.time.Clock` is a bean rather than a call to
 `Instant.now()`. `MilkHoldingTimeIT` and `FarmerEtaIT` replace it and assert exact instants, so the
@@ -435,7 +437,7 @@ arithmetic of the holding-time and ETA calculations is itself under test — not
 ### What was actually executed
 
 - `mvn clean test` — 76 unit tests, green.
-- The integration suite — 65 tests, green, against a real PostgreSQL 16 (all five migrations plus
+- The integration suite — 73 tests, green, against a real PostgreSQL 16 (all five migrations plus
   the seed applied by Flyway, `ddl-auto=validate` accepting the entity mappings).
 - The packaged jar booted against a real PostgreSQL 16 with the `demo` profile, configured purely
   through `DB_*` environment variables: health `UP`, all migrations applied, Swagger UI served, and

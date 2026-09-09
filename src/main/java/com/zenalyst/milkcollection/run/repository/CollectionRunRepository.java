@@ -36,6 +36,11 @@ public interface CollectionRunRepository extends JpaRepository<CollectionRun, Lo
      * against the same run are serialised by the database, so each one sees the other's litres
      * before deciding whether there is room. Application-level synchronisation would not
      * survive a second instance of the service.
+     *
+     * <p>Deliberately no fetch joins: {@code FOR UPDATE} combined with joins would either lock
+     * rows in the joined tables or be rejected outright by PostgreSQL. Only the run row needs
+     * locking, and the tanker and plant it references are loaded lazily afterwards - two
+     * single-row primary key lookups, and neither row is being modified.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from CollectionRun r where r.id = :id")

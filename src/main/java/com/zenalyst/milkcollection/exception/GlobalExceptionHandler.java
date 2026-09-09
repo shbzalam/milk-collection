@@ -8,8 +8,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseEntity.BodyBuilder;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -71,6 +78,47 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMalformedRequest(Exception ex, HttpServletRequest request) {
         log.info("Malformed request {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
         return respond(ErrorCode.MALFORMED_REQUEST, "Request could not be parsed", request);
+    }
+
+    /**
+     * Spring MVC's own protocol-level exceptions.
+     *
+     * <p>These must be handled explicitly. The catch-all {@code Exception} handler below would
+     * otherwise turn an unknown URL, a wrong HTTP method or an unsupported content type into a
+     * 500, which is both wrong and unhelpful to a client.
+     */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ErrorResponse> handleUnknownPath(Exception ex, HttpServletRequest request) {
+        return respond(ErrorCode.RESOURCE_NOT_FOUND,
+                "No endpoint " + request.getMethod() + " " + request.getRequestURI(), request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotAllowed(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        ErrorCode code = ErrorCode.METHOD_NOT_ALLOWED;
+        BodyBuilder response = ResponseEntity.status(code.status());
+        // The Allow header is required for a 405 by the HTTP specification.
+        if (ex.getSupportedHttpMethods() != null) {
+            response.allow(ex.getSupportedHttpMethods().toArray(HttpMethod[]::new));
+        }
+        return response.body(ErrorResponse.of(clock.instant(), code,
+                ex.getMethod() + " is not supported by " + request.getRequestURI(),
+                request.getRequestURI()));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(
+            HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        return respond(ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+                "Content type " + ex.getContentType() + " is not supported; use application/json",
+                request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ErrorResponse> handleNotAcceptable(HttpServletRequest request) {
+        return respond(ErrorCode.NOT_ACCEPTABLE,
+                "This API produces application/json only", request);
     }
 
     /**

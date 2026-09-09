@@ -1,7 +1,10 @@
 package com.zenalyst.milkcollection.run.service;
 
+import com.zenalyst.milkcollection.common.domain.EntityStatus;
 import com.zenalyst.milkcollection.common.geo.Coordinates;
 import com.zenalyst.milkcollection.config.AppProperties;
+import com.zenalyst.milkcollection.config.RoutingProperties;
+import com.zenalyst.milkcollection.farmer.repository.FarmerRepository;
 import com.zenalyst.milkcollection.route.planning.PlannedStop;
 import com.zenalyst.milkcollection.route.planning.PlanningConstraints;
 import com.zenalyst.milkcollection.route.planning.PlanningConstraintsFactory;
@@ -15,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -33,9 +37,11 @@ import java.util.stream.Collectors;
 public class RunScheduleService {
 
     private final RunStopRepository runStopRepository;
+    private final FarmerRepository farmerRepository;
     private final PlanningDataLoader planningDataLoader;
     private final PlanningConstraintsFactory constraintsFactory;
     private final ScheduleProjector scheduleProjector;
+    private final RoutingProperties routingProperties;
     private final AppProperties appProperties;
 
     /** Stops of the run still to be worked, after the given sequence number, in driving order. */
@@ -81,5 +87,17 @@ public class RunScheduleService {
     /** Location of a stop's collection point. */
     public Coordinates locationOf(RunStop stop) {
         return stop.getRouteStop().getCollectionPoint().coordinates();
+    }
+
+    /**
+     * Service time still owed at a stop the tanker is standing at, for the farmers who have not
+     * been recorded yet. Two farmers at one collection point take longer than one, and that
+     * time counts against both the holding limit and anyone waiting further down the route.
+     */
+    public Duration outstandingServiceAt(RunStop stop, long farmersAlreadyServed) {
+        long farmersAtStop = farmerRepository.countByCollectionPointIdAndStatus(
+                stop.getRouteStop().getCollectionPoint().getId(), EntityStatus.ACTIVE);
+        long stillWaiting = Math.max(0, farmersAtStop - farmersAlreadyServed);
+        return routingProperties.perFarmerServiceDuration().multipliedBy(stillWaiting);
     }
 }

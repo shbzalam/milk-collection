@@ -7,12 +7,10 @@ import com.zenalyst.milkcollection.collection.dto.RunLoadSummary;
 import com.zenalyst.milkcollection.collection.entity.MilkCollection;
 import com.zenalyst.milkcollection.collection.entity.MilkCollectionStatus;
 import com.zenalyst.milkcollection.collection.repository.MilkCollectionRepository;
-import com.zenalyst.milkcollection.common.domain.EntityStatus;
 import com.zenalyst.milkcollection.exception.BusinessRuleException;
 import com.zenalyst.milkcollection.exception.ErrorCode;
 import com.zenalyst.milkcollection.exception.ResourceNotFoundException;
 import com.zenalyst.milkcollection.farmer.entity.Farmer;
-import com.zenalyst.milkcollection.farmer.repository.FarmerRepository;
 import com.zenalyst.milkcollection.farmer.service.FarmerService;
 import com.zenalyst.milkcollection.route.planning.PlanningConstraints;
 import com.zenalyst.milkcollection.route.planning.ProjectedSchedule;
@@ -61,7 +59,6 @@ public class MilkCollectionService {
     private final MilkCollectionRepository milkCollectionRepository;
     private final CollectionRunRepository collectionRunRepository;
     private final RunStopRepository runStopRepository;
-    private final FarmerRepository farmerRepository;
     private final FarmerService farmerService;
     private final RunScheduleService runScheduleService;
     private final RunStateMachine runStateMachine;
@@ -209,14 +206,11 @@ public class MilkCollectionService {
      * farmers at one point take longer than one, and that time counts against the holding limit.
      */
     private ProjectedSchedule projectRemainder(CollectionRun run, RunStop stop, Instant collectedAt) {
-        PlanningConstraints constraints = runScheduleService.constraintsFor(run);
-        long farmersAtStop = farmerRepository.countByCollectionPointIdAndStatus(
-                stop.getRouteStop().getCollectionPoint().getId(), EntityStatus.ACTIVE);
+        // The milk being recorded counts as served; anyone still queueing at this stop adds
+        // standing time before the tanker can move on.
         long served = milkCollectionRepository.countByRunStopId(stop.getId()) + 1;
-        long stillWaiting = Math.max(0, farmersAtStop - served);
-
-        Instant departureFromThisStop = collectedAt.plus(
-                constraints.perFarmerServiceDuration().multipliedBy(stillWaiting));
+        Instant departureFromThisStop =
+                collectedAt.plus(runScheduleService.outstandingServiceAt(stop, served));
         return runScheduleService.projectFrom(run, runScheduleService.locationOf(stop),
                 departureFromThisStop, stop.getSequenceNumber());
     }

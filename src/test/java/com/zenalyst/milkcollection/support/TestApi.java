@@ -156,6 +156,18 @@ public class TestApi {
                 """.formatted(farmerId, litres));
     }
 
+    public ResultActions reportLocation(long tankerId, double latitude, double longitude)
+            throws Exception {
+        return postJson("/api/v1/tankers/%d/location".formatted(tankerId), """
+                {"latitude":%s,"longitude":%s}
+                """.formatted(latitude, longitude));
+    }
+
+    public ResultActions nextCollection(long farmerId) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders
+                .get("/api/v1/farmers/{id}/next-collection", farmerId));
+    }
+
     public ResultActions getRun(long runId) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/runs/{id}", runId));
     }

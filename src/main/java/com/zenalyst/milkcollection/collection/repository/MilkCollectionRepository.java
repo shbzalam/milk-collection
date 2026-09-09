@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public interface MilkCollectionRepository extends JpaRepository<MilkCollection, Long> {
 
@@ -36,6 +37,15 @@ public interface MilkCollectionRepository extends JpaRepository<MilkCollection, 
     Instant earliestCollectedAt(@Param("runId") Long runId);
 
     long countByRunStopId(Long runStopId);
+
+    /** At most one row by construction - the unique constraint on (run_stop_id, farmer_id). */
+    @Query("""
+            select c from MilkCollection c
+              join fetch c.farmer
+             where c.runStop.id = :runStopId and c.farmer.id = :farmerId
+            """)
+    Optional<MilkCollection> findByRunStopIdAndFarmerId(@Param("runStopId") Long runStopId,
+                                                        @Param("farmerId") Long farmerId);
 
     /**
      * Every collection of a run in one query, with the farmer, so a run detail response can

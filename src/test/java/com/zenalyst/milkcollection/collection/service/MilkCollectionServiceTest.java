@@ -12,7 +12,6 @@ import com.zenalyst.milkcollection.common.geo.Coordinates;
 import com.zenalyst.milkcollection.exception.BusinessRuleException;
 import com.zenalyst.milkcollection.exception.ErrorCode;
 import com.zenalyst.milkcollection.farmer.entity.Farmer;
-import com.zenalyst.milkcollection.farmer.repository.FarmerRepository;
 import com.zenalyst.milkcollection.farmer.service.FarmerService;
 import com.zenalyst.milkcollection.route.entity.RouteStop;
 import com.zenalyst.milkcollection.route.planning.PlanningConstraints;
@@ -50,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -75,8 +75,6 @@ class MilkCollectionServiceTest {
     @Mock
     private RunStopRepository runStopRepository;
     @Mock
-    private FarmerRepository farmerRepository;
-    @Mock
     private FarmerService farmerService;
     @Mock
     private RunScheduleService runScheduleService;
@@ -90,7 +88,7 @@ class MilkCollectionServiceTest {
     @BeforeEach
     void setUp() {
         service = new MilkCollectionService(milkCollectionRepository, collectionRunRepository,
-                runStopRepository, farmerRepository, farmerService, runScheduleService,
+                runStopRepository, farmerService, runScheduleService,
                 new RunStateMachine(), Clock.fixed(NOW, ZoneOffset.UTC));
 
         collectionPoint = CollectionPoint.builder().id(1L).code("CP-001")
@@ -116,8 +114,8 @@ class MilkCollectionServiceTest {
         when(farmerService.require(7L)).thenReturn(farmer);
         when(milkCollectionRepository.existsByRunStopIdAndFarmerId(100L, 7L)).thenReturn(false);
         when(milkCollectionRepository.countByRunStopId(100L)).thenReturn(0L);
-        when(farmerRepository.countByCollectionPointIdAndStatus(1L, EntityStatus.ACTIVE))
-                .thenReturn(1L);
+        when(runScheduleService.outstandingServiceAt(any(), anyLong()))
+                .thenReturn(Duration.ZERO);
         when(runScheduleService.constraintsFor(run)).thenReturn(constraints(Duration.ofHours(4)));
         when(runScheduleService.locationOf(stop)).thenReturn(collectionPoint.coordinates());
         when(runScheduleService.projectFrom(any(), any(), any(), anyInt()))

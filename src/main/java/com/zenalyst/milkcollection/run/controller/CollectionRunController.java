@@ -6,6 +6,7 @@ import com.zenalyst.milkcollection.run.dto.CollectionRunResponse;
 import com.zenalyst.milkcollection.run.dto.CreateRunRequest;
 import com.zenalyst.milkcollection.run.entity.RunStatus;
 import com.zenalyst.milkcollection.run.service.CollectionRunService;
+import com.zenalyst.milkcollection.run.service.RunQueryService;
 import com.zenalyst.milkcollection.run.service.RunExecutionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,6 +35,7 @@ import java.time.LocalDate;
 public class CollectionRunController {
 
     private final CollectionRunService collectionRunService;
+    private final RunQueryService runQueryService;
     private final RunExecutionService runExecutionService;
 
     @PostMapping
@@ -59,13 +61,13 @@ public class CollectionRunController {
             @RequestParam(required = false) Long tankerId,
             @PageableDefault(size = 50, sort = {"runDate", "plannedStartTime"},
                     direction = Sort.Direction.DESC) Pageable pageable) {
-        return collectionRunService.list(runDate, shift, status, tankerId, pageable);
+        return runQueryService.list(runDate, shift, status, tankerId, pageable);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get one run with its stops")
     public CollectionRunResponse get(@PathVariable Long id) {
-        return collectionRunService.getDetail(id);
+        return runQueryService.getDetail(id);
     }
 
     @PostMapping("/{id}/start")

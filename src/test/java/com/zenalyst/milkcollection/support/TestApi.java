@@ -149,6 +149,13 @@ public class TestApi {
                 .post("/api/v1/runs/{id}/stops/{stopId}/skip", runId, stopId));
     }
 
+    public ResultActions collect(long runId, long stopId, long farmerId, String litres)
+            throws Exception {
+        return postJson("/api/v1/runs/%d/stops/%d/collections".formatted(runId, stopId), """
+                {"farmerId":%d,"quantityLitres":%s}
+                """.formatted(farmerId, litres));
+    }
+
     public ResultActions getRun(long runId) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/runs/{id}", runId));
     }

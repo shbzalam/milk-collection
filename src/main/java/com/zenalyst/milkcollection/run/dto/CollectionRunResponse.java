@@ -1,6 +1,7 @@
 package com.zenalyst.milkcollection.run.dto;
 
 import com.zenalyst.milkcollection.chillingplant.dto.ChillingPlantResponse;
+import com.zenalyst.milkcollection.collection.dto.RunLoadSummary;
 import com.zenalyst.milkcollection.common.domain.Shift;
 import com.zenalyst.milkcollection.route.dto.RouteVersionSummary;
 import com.zenalyst.milkcollection.run.entity.CollectionRun;
@@ -28,24 +29,28 @@ public record CollectionRunResponse(
         RunStatus status,
         @Schema(description = "Optimistic-locking version of the run record")
         Long version,
+        @Schema(description = "Litres on board versus tanker capacity")
+        RunLoadSummary load,
         @Schema(description = "Omitted from listings")
         List<RunStopResponse> stops) {
 
     public static CollectionRunResponse withoutStops(CollectionRun run) {
-        return build(run, null);
+        return build(run, null, null);
     }
 
-    public static CollectionRunResponse withStops(CollectionRun run, List<RunStopResponse> stops) {
-        return build(run, stops);
+    public static CollectionRunResponse withStops(CollectionRun run, RunLoadSummary load,
+                                                  List<RunStopResponse> stops) {
+        return build(run, load, stops);
     }
 
-    private static CollectionRunResponse build(CollectionRun run, List<RunStopResponse> stops) {
+    private static CollectionRunResponse build(CollectionRun run, RunLoadSummary load,
+                                               List<RunStopResponse> stops) {
         return new CollectionRunResponse(run.getId(), run.getRunNumber(),
                 RouteVersionSummary.from(run.getRouteVersion()),
                 TankerResponse.from(run.getTanker()),
                 ChillingPlantResponse.from(run.getChillingPlant()),
                 run.getRunDate(), run.getShift(), run.getPlannedStartTime(),
                 run.getActualStartTime(), run.getActualEndTime(), run.getStatus(),
-                run.getVersion(), stops);
+                run.getVersion(), load, stops);
     }
 }

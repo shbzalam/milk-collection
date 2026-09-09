@@ -38,14 +38,14 @@ public class RunExecutionService {
 
     private final CollectionRunRepository collectionRunRepository;
     private final RunStopRepository runStopRepository;
-    private final CollectionRunService collectionRunService;
+    private final RunQueryService runQueryService;
     private final RunStateMachine runStateMachine;
     private final Clock clock;
 
     /** The tanker leaves the plant. */
     @Transactional
     public CollectionRunResponse start(Long runId) {
-        CollectionRun run = collectionRunService.require(runId);
+        CollectionRun run = runQueryService.require(runId);
         requireNoOtherRunOnTheRoad(run);
 
         runStateMachine.transition(run, RunStatus.STARTED);
@@ -54,17 +54,17 @@ public class RunExecutionService {
 
         log.info("Run {} started with tanker {} at {}", run.getRunNumber(),
                 run.getTanker().getTankerCode(), run.getActualStartTime());
-        return collectionRunService.getDetail(runId);
+        return runQueryService.getDetail(runId);
     }
 
     @Transactional
     public CollectionRunResponse cancel(Long runId) {
-        CollectionRun run = collectionRunService.require(runId);
+        CollectionRun run = runQueryService.require(runId);
         runStateMachine.transition(run, RunStatus.CANCELLED);
         collectionRunRepository.save(run);
 
         log.info("Run {} cancelled", run.getRunNumber());
-        return collectionRunService.getDetail(runId);
+        return runQueryService.getDetail(runId);
     }
 
     /** The tanker reaches a collection point; from here milk can be recorded. */
@@ -86,7 +86,7 @@ public class RunExecutionService {
 
         log.info("Run {} arrived at stop {} ({}) at {}", run.getRunNumber(), stop.getSequenceNumber(),
                 stop.getRouteStop().getCollectionPoint().getCode(), stop.getActualArrivalTime());
-        return collectionRunService.getDetail(runId);
+        return runQueryService.getDetail(runId);
     }
 
     /** The tanker leaves a collection point. */
@@ -101,7 +101,7 @@ public class RunExecutionService {
 
         log.info("Run {} completed stop {} ({})", stop.getCollectionRun().getRunNumber(),
                 stop.getSequenceNumber(), stop.getRouteStop().getCollectionPoint().getCode());
-        return collectionRunService.getDetail(runId);
+        return runQueryService.getDetail(runId);
     }
 
     /**
@@ -118,7 +118,7 @@ public class RunExecutionService {
 
         log.info("Run {} skipped stop {} ({})", stop.getCollectionRun().getRunNumber(),
                 stop.getSequenceNumber(), stop.getRouteStop().getCollectionPoint().getCode());
-        return collectionRunService.getDetail(runId);
+        return runQueryService.getDetail(runId);
     }
 
     /**
@@ -129,7 +129,7 @@ public class RunExecutionService {
      */
     @Transactional
     public CollectionRunResponse complete(Long runId) {
-        CollectionRun run = collectionRunService.require(runId);
+        CollectionRun run = runQueryService.require(runId);
         long unfinished = runStopRepository.countByCollectionRunIdAndStatusIn(runId, UNFINISHED_STOPS);
         if (unfinished > 0) {
             throw new BusinessRuleException(ErrorCode.INVALID_STOP_STATE,
@@ -142,7 +142,7 @@ public class RunExecutionService {
         collectionRunRepository.save(run);
 
         log.info("Run {} completed at {}", run.getRunNumber(), run.getActualEndTime());
-        return collectionRunService.getDetail(runId);
+        return runQueryService.getDetail(runId);
     }
 
     private void requireRunOnTheRoad(CollectionRun run) {

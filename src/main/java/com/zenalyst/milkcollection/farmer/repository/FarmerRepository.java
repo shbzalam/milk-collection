@@ -21,6 +21,8 @@ public interface FarmerRepository extends JpaRepository<Farmer, Long>,
 
     long countByCollectionPointId(Long collectionPointId);
 
+    long countByCollectionPointIdAndStatus(Long collectionPointId, EntityStatus status);
+
     /**
      * Village and collection point are eagerly loaded because the response embeds both;
      * without the entity graph, listing N farmers would issue 2N extra selects.

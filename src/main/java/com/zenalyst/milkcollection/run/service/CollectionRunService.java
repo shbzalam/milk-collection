@@ -3,12 +3,10 @@ package com.zenalyst.milkcollection.run.service;
 import com.zenalyst.milkcollection.chillingplant.entity.ChillingPlant;
 import com.zenalyst.milkcollection.chillingplant.service.ChillingPlantService;
 import com.zenalyst.milkcollection.common.domain.Shift;
-import com.zenalyst.milkcollection.common.dto.PageResponse;
 import com.zenalyst.milkcollection.config.AppProperties;
 import com.zenalyst.milkcollection.config.OperationsProperties;
 import com.zenalyst.milkcollection.exception.BusinessRuleException;
 import com.zenalyst.milkcollection.exception.ErrorCode;
-import com.zenalyst.milkcollection.exception.ResourceNotFoundException;
 import com.zenalyst.milkcollection.route.entity.RouteVersion;
 import com.zenalyst.milkcollection.route.planning.PlannedStop;
 import com.zenalyst.milkcollection.route.planning.PlanningConstraints;
@@ -20,19 +18,16 @@ import com.zenalyst.milkcollection.route.repository.RouteStopRepository;
 import com.zenalyst.milkcollection.route.service.RouteVersionService;
 import com.zenalyst.milkcollection.run.dto.CollectionRunResponse;
 import com.zenalyst.milkcollection.run.dto.CreateRunRequest;
-import com.zenalyst.milkcollection.run.dto.RunStopResponse;
 import com.zenalyst.milkcollection.run.entity.CollectionRun;
 import com.zenalyst.milkcollection.run.entity.RunStatus;
 import com.zenalyst.milkcollection.run.entity.RunStop;
 import com.zenalyst.milkcollection.run.entity.RunStopStatus;
 import com.zenalyst.milkcollection.run.repository.CollectionRunRepository;
-import com.zenalyst.milkcollection.run.repository.CollectionRunSpecifications;
 import com.zenalyst.milkcollection.run.repository.RunStopRepository;
 import com.zenalyst.milkcollection.tanker.entity.Tanker;
 import com.zenalyst.milkcollection.tanker.service.TankerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +54,7 @@ public class CollectionRunService {
     private final CollectionRunRepository collectionRunRepository;
     private final RunStopRepository runStopRepository;
     private final RouteStopRepository routeStopRepository;
+    private final RunQueryService runQueryService;
     private final RouteVersionService routeVersionService;
     private final TankerService tankerService;
     private final ChillingPlantService chillingPlantService;
@@ -134,31 +130,7 @@ public class CollectionRunService {
                 run.getRunNumber(), tanker.getTankerCode(), request.runDate(), request.shift(),
                 schedule.stops().size(), schedule.totalExpectedLitres(), schedule.plantArrival(),
                 schedule.milkHoldingDuration());
-        return getDetail(run.getId());
-    }
-
-    @Transactional(readOnly = true)
-    public CollectionRunResponse getDetail(Long runId) {
-        CollectionRun run = require(runId);
-        return CollectionRunResponse.withStops(run, runStopRepository
-                .findByRunIdWithCollectionPoint(runId).stream()
-                .map(RunStopResponse::from)
-                .toList());
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<CollectionRunResponse> list(LocalDate runDate, Shift shift, RunStatus status,
-                                                    Long tankerId, Pageable pageable) {
-        return PageResponse.from(
-                collectionRunRepository.findAll(
-                        CollectionRunSpecifications.filter(runDate, shift, status, tankerId), pageable),
-                CollectionRunResponse::withoutStops);
-    }
-
-    @Transactional(readOnly = true)
-    public CollectionRun require(Long runId) {
-        return collectionRunRepository.findWithDetailById(runId)
-                .orElseThrow(() -> ResourceNotFoundException.of("CollectionRun", runId));
+        return runQueryService.getDetail(run.getId());
     }
 
     /**

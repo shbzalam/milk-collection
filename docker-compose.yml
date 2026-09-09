@@ -1,0 +1,47 @@
+# Two ways to run:
+#   1. Database only (then run the app with Maven on the host):
+#        docker compose up -d
+#        mvn spring-boot:run
+#   2. Full stack in containers:
+#        docker compose --profile app up -d --build
+#
+# The application is behind the "app" profile so that option 1 does not occupy port 8080.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: milk-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-milk_collection}
+      POSTGRES_USER: ${DB_USERNAME:-milk}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-milk}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-milk} -d ${DB_NAME:-milk_collection}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    profiles: ["app"]
+    build: .
+    container_name: milk-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-milk_collection}
+      DB_USERNAME: ${DB_USERNAME:-milk}
+      DB_PASSWORD: ${DB_PASSWORD:-milk}
+      APP_TIME_ZONE: ${APP_TIME_ZONE:-Asia/Kolkata}
+      MILK_MAX_HOLDING_DURATION: ${MILK_MAX_HOLDING_DURATION:-PT4H}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-demo}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+
+volumes:
+  postgres-data:

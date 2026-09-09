@@ -1,0 +1,13 @@
+# Integration-test profile. The seed dataset is intentionally NOT loaded so tests
+# assert against state they created themselves.
+spring:
+  flyway:
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+logging:
+  level:
+    com.zenalyst.milkcollection: INFO
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN

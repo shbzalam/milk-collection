@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: milk-collection
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:milk_collection}
+    username: ${DB_USERNAME:milk}
+    password: ${DB_PASSWORD:milk}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      pool-name: milk-cp
+  jpa:
+    # Schema is owned by Flyway. 'validate' fails fast if entities and migrations drift apart.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.query.in_clause_parameter_padding: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  threads:
+    virtual:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: alpha
+    tagsSorter: alpha
+
+app:
+  # All LocalTime/LocalDate values in the domain are interpreted in this zone.
+  time-zone: ${APP_TIME_ZONE:Asia/Kolkata}
+
+milk:
+  # MVP ASSUMPTION: the assignment does not state a real maximum holding time.
+  # 4 hours is a configurable placeholder, not a dairy regulation.
+  max-holding-duration: ${MILK_MAX_HOLDING_DURATION:PT4H}
+
+routing:
+  # MVP ASSUMPTIONS for the deterministic travel-time model (no traffic data, no map API).
+  average-speed-kmph: ${ROUTING_AVERAGE_SPEED_KMPH:30}
+  road-winding-factor: ${ROUTING_ROAD_WINDING_FACTOR:1.3}
+  stop-base-service-duration: ${ROUTING_STOP_BASE_SERVICE:PT3M}
+  per-farmer-service-duration: ${ROUTING_PER_FARMER_SERVICE:PT2M}
+
+operations:
+  morning-start-time: ${OPERATIONS_MORNING_START:05:00}
+  evening-start-time: ${OPERATIONS_EVENING_START:16:00}
+
+logging:
+  level:
+    com.zenalyst.milkcollection: INFO

@@ -1,0 +1,8 @@
+# Demo profile: loads the seed dataset (repeatable, idempotent Flyway migration)
+# on top of the schema so a reviewer has usable data immediately.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
+logging:
+  level:
+    com.zenalyst.milkcollection: DEBUG

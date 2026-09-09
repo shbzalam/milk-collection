@@ -32,7 +32,7 @@ says so rather than presenting a choice as a requirement.
 > simultaneously cannot overfill a tanker between them. There is a test that fails if you remove
 > the lock.
 >
-> Java 21, Spring Boot 3.4, PostgreSQL, Flyway, Docker Compose, 149 tests. The interesting business
+> Java 21, Spring Boot 3.4, PostgreSQL, Flyway, Docker Compose, 150 tests. The interesting business
 > rules are unit tested, and the integration tests run against real PostgreSQL because the
 > correctness of this system depends on constraints — partial unique indexes and `SELECT … FOR
 > UPDATE` — that only the real engine has.
@@ -395,8 +395,10 @@ per collection point if it ever mattered.
 history at 22 tankers every 30 seconds is roughly two million rows a month — the one table with a
 real growth story, handled by monthly partitioning and a retention policy.
 
-**What is already in place for volume.** Indexes chosen from actual query patterns rather than
-sprinkled: `farmer(collection_point_id)` and `farmer(phone)` for the call-centre lookup,
+**What is already in place for volume.** A test pins the query count of the heaviest read
+(`GET /runs/{id}`, which embeds stops, collection points, collections and farmers) using Hibernate
+statistics, so an N+1 fails the build rather than degrading quietly. Indexes are chosen from actual
+query patterns rather than sprinkled: `farmer(collection_point_id)` and `farmer(phone)` for the call-centre lookup,
 `route_stop(route_version_id)`, `collection_run(run_date, shift)` for the dispatch view, and
 descending composite indexes `tanker_location(tanker_id, recorded_at desc)` so "latest position" is
 a one-row index scan regardless of history size. All list endpoints are paged with a stable sort.
@@ -580,6 +582,6 @@ Stated plainly, worst first.
 10. **Position history has no retention policy**, so it grows without bound.
 
 What I am confident *is* solid: the domain model, the versioning guarantee, the transactional and
-concurrency handling around capacity, and the test coverage of the business rules — 149 tests, with
+concurrency handling around capacity, and the test coverage of the business rules — 150 tests, with
 the ones that matter asserting exact arithmetic against real PostgreSQL rather than just checking
 that responses have the right shape.

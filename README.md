@@ -3,7 +3,7 @@
 Backend for a dairy that collects milk twice a day from ~1,400 farmers across 60 villages using
 22 tankers, and needs to stop losing loads to spoilage.
 
-Java 21 · Spring Boot 3.4 · PostgreSQL 16 · Flyway · Docker Compose · 149 tests
+Java 21 · Spring Boot 3.4 · PostgreSQL 16 · Flyway · Docker Compose · 150 tests
 
 ---
 
@@ -398,7 +398,7 @@ present. No credentials are committed.
 
 ```bash
 mvn clean test      # 76 unit tests - no database, no Docker, ~5 seconds
-mvn clean verify    # the above plus 73 integration tests (needs Docker)
+mvn clean verify    # the above plus 74 integration tests (needs Docker)
 ```
 
 Unit tests (`*Test`, Surefire) and integration tests (`*IT`, Failsafe) are split deliberately, so
@@ -429,6 +429,7 @@ from truncating the schema before each test instead.
 | `SeedDataIT` | the demo dataset loads, is idempotent, and its routes are actually drivable |
 | `FullCollectionJourneyIT` | the whole sequence a dairy performs, empty database to closed run |
 | `HttpContractIT` | protocol-level behaviour: unknown path, wrong method, bad content type, unparseable input |
+| `RunDetailQueryCountIT` | pins the query count of the heaviest read so an N+1 cannot creep back in |
 
 Time-dependent behaviour is testable because `java.time.Clock` is a bean rather than a call to
 `Instant.now()`. `MilkHoldingTimeIT` and `FarmerEtaIT` replace it and assert exact instants, so the
@@ -437,7 +438,7 @@ arithmetic of the holding-time and ETA calculations is itself under test — not
 ### What was actually executed
 
 - `mvn clean test` — 76 unit tests, green.
-- The integration suite — 73 tests, green, against a real PostgreSQL 16 (all five migrations plus
+- The integration suite — 74 tests, green, against a real PostgreSQL 16 (all five migrations plus
   the seed applied by Flyway, `ddl-auto=validate` accepting the entity mappings).
 - The packaged jar booted against a real PostgreSQL 16 with the `demo` profile, configured purely
   through `DB_*` environment variables: health `UP`, all migrations applied, Swagger UI served, and
